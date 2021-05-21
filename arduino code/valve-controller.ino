@@ -1,54 +1,121 @@
+// This #include statement was automatically added by the Particle IDE.
+
 #include "Particle.h"
+#include <JsonParserGeneratorRK.h>
 // First, we're going to make some variables.
 // This is our "shorthand" that we'll use throughout the program:
 
-int valve = D0; // Instead of writing D0 over and over again, we'll write led1
-// You'll need to wire an LED to this one to see it blink.
+int valve = D3; // Instead of writing D3 over and over again, we'll write valve
 
+int sensor1= A1;
 
+int waterState = LOW;             // ledState used to set the LED
+unsigned long previousMillis = 0;        // will store last time LED was updated
+long OnTime = 60000;           // milliseconds of on-time
+long OffTime = 60000; 
+unsigned long currentMillis;
+int Moisture;
+String Current = "12:10";
+String setTime = "0";
 // Having declared these variables, let's move on to the setup function.
 // The setup function is a standard part of any microcontroller program.
 // It runs only once when the device boots up or is reset.
 
 void setup() {
 
-  // We are going to tell our device that D0 and D7 (which we named led1 and led2 respectively) are going to be output
-  // (That means that we will be sending voltage to them, rather than monitoring voltage that comes from them)
 
-  // It's important you do this here, inside the setup() function rather than outside it or in the loop function.
 
   pinMode(valve, OUTPUT);
+  pinMode(sensor1, INPUT);
 
 
-  Particle.subscribe("Water", tempHandler, MY_DEVICES);
-
+  Particle.subscribe("Water", waterHandler, MY_DEVICES);
+  Particle.subscribe("set time", timeHandler, MY_DEVICES);
+  Particle.subscribe("Current Time", currentHandler, MY_DEVICES);
   
 
 }
 
-// Next we have the loop function, the other essential part of a microcontroller program.
-// This routine gets repeated over and over, as quickly as possible and as many times as possible, after the setup function is called.
-// Note: Code that blocks for too long (like more than 5 seconds), can make weird things happen (like dropping the network connection).  The built-in delay function shown below safely interleaves required background activity, so arbitrarily long delays can safely be done if you need them.
+
 
 void loop() {
-   
+    currentMillis = millis();
+      Moisture =  analogRead(sensor1);
+      createEventPayload(Moisture);
+      
+    if(setTime == Current)
+  {
+     createEventPayload(Moisture);
+    waterState = HIGH;  // turn it on
+    previousMillis = currentMillis;   // Remember the time
+    digitalWrite(valve, waterState);
+  }
+      
+    
+    if((waterState == HIGH) && (currentMillis - previousMillis >= OnTime))
+  {
+      createEventPayload(Moisture);
+    waterState = LOW;  // Turn it off
+    previousMillis = currentMillis;  // Remember the time
+    digitalWrite(valve, waterState);  // Update the actual LED
+  }
+  else if ((waterState == LOW) && (currentMillis - previousMillis >= OffTime))
+  {
+      createEventPayload(Moisture);
+    waterState = HIGH;  // turn it on
+    previousMillis = currentMillis;   // Remember the time
+    digitalWrite(valve, waterState);	  // Update the actual LED
+  }
+}
+
+
+
+void createEventPayload(int humid)
+{
+    JsonWriterStatic<256> jw;
+    {
+        JsonWriterAutoObject obj(&jw);
+        jw.insertKeyValue("Moisture",Moisture);
+    }
+    Particle.publish("Moisture_Vals", jw.getBuffer(), PRIVATE);
 
 }
+
+
 
 void waterHandler(const char *event, const char *data)
 {
-    if(data == "off")
+     Moisture =  analogRead(sensor1);
+    String val = String(data);
+    if(val== "off")
     {
-        digitalWrite(led1, Low);
+      createEventPayload(Moisture);
+    waterState = LOW;  // Turn it off
+    previousMillis = currentMillis;  // Remember the time
+    digitalWrite(valve, waterState); 
     }
     
     
-    if(data == "on")
+    if(val == "on")
     {
-    digitalWrite(led1, HIGH);
+     createEventPayload(Moisture);
+    waterState = HIGH;  // turn it on
+    previousMillis = currentMillis;   // Remember the time
+    digitalWrite(valve, waterState);
     }
 
 }
 
 
 
+void timeHandler(const char *event, const char *data)
+{
+   setTime = String(data);
+
+}
+
+void currentHandler(const char *event, const char *data)
+{
+   Current = String(data);
+
+}
