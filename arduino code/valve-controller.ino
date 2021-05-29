@@ -17,6 +17,19 @@ unsigned long currentMillis;
 int Moisture;
 String Current = "12:10";
 String setTime = "0";
+
+SYSTEM_THREAD(ENABLED);
+
+void threadFunction(void *param);
+
+Thread thread("mainThread", run);
+Thread thread2("timeThread", LocalTime);
+
+
+volatile int counter = 0;
+unsigned long lastReport = 0;
+system_tick_t lastThreadTime = 0;
+
 // Having declared these variables, let's move on to the setup function.
 // The setup function is a standard part of any microcontroller program.
 // It runs only once when the device boots up or is reset.
@@ -37,8 +50,24 @@ void setup() {
 }
 
 
-
 void loop() {
+	if (millis() - lastReport >= 1000) {
+		lastReport = millis();
+
+		run();
+	}
+	
+	if (millis() - lastReport >= 1000) {
+		lastReport = millis();
+
+		run();
+	}
+	
+	
+}
+
+
+void run() {
     currentMillis = millis();
       Moisture =  analogRead(sensor1);
       createEventPayload(Moisture);
@@ -85,6 +114,7 @@ void createEventPayload(int humid)
 
 void waterHandler(const char *event, const char *data)
 {
+    os_thread_delay_until(&lastThreadTime, 60000);
      Moisture =  analogRead(sensor1);
     String val = String(data);
     if(val== "off")
@@ -119,3 +149,10 @@ void currentHandler(const char *event, const char *data)
    Current = String(data);
 
 }
+
+void LocalTime()
+{
+    os_thread_delay_until(&lastThreadTime, 1000);
+    Current =Time.local();
+}
+
